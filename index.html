@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Photo Resizer for GDS (Postal)</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Crect width='256' height='256' rx='48' fill='%23047a9c'/%3E%3Crect x='48' y='88' width='160' height='64' rx='8' fill='%23eef7f9'/%3E%3Crect x='48' y='88' width='160' height='64' rx='8' fill='none' stroke='%230b2e3d' stroke-width='4'/%3E%3Ccircle cx='80' cy='112' r='10' fill='%23047a9c'/%3E%3Cpath d='M60 148 L100 116 L128 138 L156 108 L196 148 Z' fill='%23047a9c'/%3E%3Cpath d='M96 176 L160 176 L160 204 L128 220 L96 204 Z' fill='%23eef7f9'/%3E%3Cpath d='M96 176 L128 198 L160 176' fill='none' stroke='%230b2e3d' stroke-width='4' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --ink:#0b2e3d;
+    --ink-soft:#3d6b7a;
+    --paper:#d7eef3;
+    --card:#c3e6ee;
+    --line:#8fcbd8;
+    --accent:#047a9c;
+    --accent-soft:#aee0ea;
+    --good:#0e7a63;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family: Georgia, 'Times New Roman', serif;
+    background:var(--paper);
+    color:var(--ink);
+    padding:32px 16px 64px;
+  }
+  .wrap{max-width:760px;margin:0 auto;}
+  header{margin-bottom:28px;}
+  h1{
+    font-size:28px;
+    font-weight:400;
+    margin:0 0 6px;
+    letter-spacing:0.2px;
+  }
+  .sub{
+    font-family: Arial, Helvetica, sans-serif;
+    font-size:14px;
+    color:var(--ink-soft);
+    line-height:1.5;
+    max-width:560px;
+  }
+  .card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:4px;
+    padding:24px;
+    margin-bottom:20px;
+  }
+  .row{
+    display:flex;
+    gap:16px;
+    flex-wrap:wrap;
+    align-items:flex-end;
+  }
+  label{
+    font-family: Arial, Helvetica, sans-serif;
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:0.6px;
+    color:var(--ink-soft);
+    display:block;
+    margin-bottom:6px;
+  }
+  select, input[type=number]{
+    font-family: Arial, Helvetica, sans-serif;
+    font-size:14px;
+    padding:8px 10px;
+    border:1px solid var(--line);
+    border-radius:3px;
+    background:var(--card);
+    color:var(--ink);
+  }
+  .dropzone{
+    border:1.5px dashed var(--line);
+    border-radius:4px;
+    padding:36px 20px;
+    text-align:center;
+    cursor:pointer;
+    font-family: Arial, Helvetica, sans-serif;
+    color:var(--ink-soft);
+    font-size:14px;
+    transition:border-color .15s, background .15s;
+  }
+  .dropzone:hover, .dropzone.drag{
+    border-color:var(--accent);
+    background:var(--accent-soft);
+  }
+  .dropzone strong{color:var(--ink);}
+  input[type=file]{display:none;}
+
+  .stage{
+    display:none;
+  }
+  .stage.active{display:block;}
+
+  .crop-area{
+    position:relative;
+    width:100%;
+    max-width:640px;
+    margin:0 auto;
+    overflow:hidden;
+    background:#0b2e3d;
+    border-radius:4px;
+    touch-action:none;
+    user-select:none;
+    cursor:grab;
+  }
+  .crop-area.dragging{cursor:grabbing;}
+  .crop-area canvas{display:block;width:100%;height:auto;}
+
+  .controls{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    margin-top:16px;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+  .controls label{margin:0;white-space:nowrap;}
+  input[type=range]{flex:1;accent-color:var(--accent);}
+
+  .actions{
+    display:flex;
+    gap:12px;
+    margin-top:20px;
+    flex-wrap:wrap;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+  button{
+    font-family: Arial, Helvetica, sans-serif;
+    font-size:14px;
+    padding:10px 18px;
+    border-radius:3px;
+    border:1px solid var(--accent);
+    background:var(--accent);
+    color:#fff;
+    cursor:pointer;
+  }
+  button.secondary{
+    background:var(--card);
+    color:var(--accent);
+  }
+  button:hover{opacity:0.92;}
+
+  .out-size{
+    font-family: Arial, Helvetica, sans-serif;
+    font-size:13px;
+    color:var(--ink-soft);
+    margin-top:4px;
+  }
+
+  .result{
+    display:none;
+    text-align:center;
+  }
+  .result.active{display:block;}
+  .result img{
+    max-width:100%;
+    border:1px solid var(--line);
+    border-radius:4px;
+    margin-bottom:16px;
+  }
+  .result .filesize{
+    font-family: Arial, Helvetica, sans-serif;
+    font-size:13px;
+    color:var(--good);
+    margin-bottom:14px;
+  }
+  .footer-note{
+    font-family: Arial, Helvetica, sans-serif;
+    font-size:12px;
+    color:var(--ink-soft);
+    text-align:center;
+    margin-top:28px;
+    line-height:1.6;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+      <svg width="40" height="40" viewBox="0 0 256 256" style="border-radius:8px;flex-shrink:0;">
+        <rect width="256" height="256" rx="48" fill="#047a9c"/>
+        <rect x="48" y="88" width="160" height="64" rx="8" fill="#eef7f9"/>
+        <rect x="48" y="88" width="160" height="64" rx="8" fill="none" stroke="#0b2e3d" stroke-width="4"/>
+        <circle cx="80" cy="112" r="10" fill="#047a9c"/>
+        <path d="M60 148 L100 116 L128 138 L156 108 L196 148 Z" fill="#047a9c"/>
+        <path d="M96 176 L160 176 L160 204 L128 220 L96 204 Z" fill="#eef7f9"/>
+        <path d="M96 176 L128 198 L160 176" fill="none" stroke="#0b2e3d" stroke-width="4" stroke-linejoin="round"/>
+      </svg>
+      <h1 style="margin:0;">Photo resizer for GDS (postal)</h1>
+    </div>
+    <p class="sub">Upload a photo, position it inside the crop frame, and download it at the exact size needed. Set to 4:5 by default for the GDS photo — switch to 5:2 landscape for the GDS signature upload.</p>
+  </header>
+
+  <div class="card" id="uploadCard">
+    <div class="dropzone" id="dropzone">
+      <strong>Click to choose a photo</strong> or drag one here<br>JPG or PNG
+    </div>
+    <input type="file" id="fileInput" accept="image/*">
+  </div>
+
+  <div class="card stage" id="cropStage">
+    <div class="row" style="margin-bottom:18px;">
+      <div>
+        <label for="ratioSelect">Aspect ratio</label>
+        <select id="ratioSelect">
+          <option value="0.8" selected>4:5 (GDS photo)</option>
+          <option value="2.5">5:2 landscape (GDS signature)</option>
+          <option value="1.3333">4:3</option>
+          <option value="1">1:1 square</option>
+          <option value="0.7778">3.5:4.5 (passport)</option>
+          <option value="custom">Custom</option>
+        </select>
+      </div>
+      <div id="customRatioRow" style="display:none;">
+        <label>Width : Height</label>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <input type="number" id="customW" value="5" min="1" style="width:60px;">
+          <span>:</span>
+          <input type="number" id="customH" value="2" min="1" style="width:60px;">
+        </div>
+      </div>
+      <div>
+        <label for="outW">Output width (px)</label>
+        <input type="number" id="outW" value="200" min="20" style="width:90px;">
+      </div>
+      <div>
+        <label for="outH">Output height (px)</label>
+        <input type="number" id="outH" value="200" min="20" style="width:90px;" readonly>
+      </div>
+      <div>
+        <label for="targetKB">Max file size (KB)</label>
+        <input type="number" id="targetKB" value="100" min="10" style="width:90px;">
+      </div>
+    </div>
+
+    <div class="crop-area" id="cropArea">
+      <canvas id="cropCanvas"></canvas>
+    </div>
+
+    <div class="controls">
+      <label for="zoom">Zoom</label>
+      <input type="range" id="zoom" min="100" max="400" value="100">
+    </div>
+
+    <div class="actions">
+      <button id="downloadBtn">Download photo</button>
+      <button class="secondary" id="resetBtn">Choose a different photo</button>
+    </div>
+    <p class="out-size" id="sizeLabel"></p>
+    <p class="out-size">On Chrome (desktop or Android), tapping "Download photo" opens a <strong>save-as dialog</strong> so you can pick the exact folder. On other browsers, it saves straight to your default <strong>Downloads</strong> folder — on Android, that's Files app → Downloads; on iPhone/iPad, Files app → Downloads (or Photos, if your browser offers "Save Image" instead).</p>
+  </div>
+
+  <div class="card result" id="resultCard">
+    <div class="result active">
+      <img id="resultImg" alt="Cropped result">
+      <p class="filesize" id="resultInfo"></p>
+      <button id="downloadLink">Save to device</button>
+      <button class="secondary" id="backBtn">Back to crop</button>
+      <p id="savedMsg" style="display:none;width:100%;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:var(--good);margin-top:10px;">Saved successfully.</p>
+    </div>
+  </div>
+
+  <p class="footer-note">Everything happens in your browser — the photo is never uploaded anywhere. Check your application's exact size and file-size limits before submitting.</p>
+</div>
+
+<script>
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const uploadCard = document.getElementById('uploadCard');
+const cropStage = document.getElementById('cropStage');
+const cropArea = document.getElementById('cropArea');
+const cropCanvas = document.getElementById('cropCanvas');
+const ctx = cropCanvas.getContext('2d');
+const zoomSlider = document.getElementById('zoom');
+const ratioSelect = document.getElementById('ratioSelect');
+const customRatioRow = document.getElementById('customRatioRow');
+const customW = document.getElementById('customW');
+const customH = document.getElementById('customH');
+const outW = document.getElementById('outW');
+const outH = document.getElementById('outH');
+const sizeLabel = document.getElementById('sizeLabel');
+const resultCard = document.getElementById('resultCard');
+const resultImg = document.getElementById('resultImg');
+const resultInfo = document.getElementById('resultInfo');
+
+let img = new Image();
+let ratio = 0.8; // width / height
+let scale = 1;      // user zoom multiplier on top of "fit" scale
+let baseScale = 1;  // scale that makes image fill the crop box at zoom=100
+let offsetX = 0, offsetY = 0; // center of crop, in image pixels
+let dragging = false;
+let dragStart = {x:0,y:0};
+let offsetStart = {x:0,y:0};
+
+const STAGE_W = 640; // canvas render width (frame width in css px, matches ratio)
+
+function currentRatio(){
+  if(ratioSelect.value === 'custom'){
+    const w = parseFloat(customW.value)||1;
+    const h = parseFloat(customH.value)||1;
+    return w/h;
+  }
+  return parseFloat(ratioSelect.value);
+}
+
+function setupCanvasSize(){
+  ratio = currentRatio();
+  const w = STAGE_W;
+  const h = Math.round(w/ratio);
+  cropCanvas.width = w;
+  cropCanvas.height = h;
+  outH.value = Math.round(outW.value / ratio);
+  sizeLabel.textContent = 'Output will be ' + outW.value + ' x ' + outH.value + ' px';
+}
+
+function loadImage(file){
+  const reader = new FileReader();
+  reader.onload = e => {
+    img = new Image();
+    img.onload = () => {
+      uploadCard.style.display = 'none';
+      cropStage.classList.add('active');
+      resultCard.classList.remove('active');
+      setupCanvasSize();
+      baseScale = Math.max(cropCanvas.width/img.width, cropCanvas.height/img.height);
+      scale = 1;
+      zoomSlider.value = 100;
+      offsetX = img.width/2;
+      offsetY = img.height/2;
+      draw();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function draw(){
+  const w = cropCanvas.width, h = cropCanvas.height;
+  ctx.clearRect(0,0,w,h);
+  const effScale = baseScale * scale;
+  const drawW = img.width * effScale;
+  const drawH = img.height * effScale;
+  const cx = w/2 - offsetX*effScale;
+  const cy = h/2 - offsetY*effScale;
+  ctx.drawImage(img, cx, cy, drawW, drawH);
+}
+
+function clampOffset(){
+  const effScale = baseScale * scale;
+  const halfW = (cropCanvas.width/2)/effScale;
+  const halfH = (cropCanvas.height/2)/effScale;
+  offsetX = Math.min(Math.max(offsetX, halfW), img.width - halfW);
+  offsetY = Math.min(Math.max(offsetY, halfH), img.height - halfH);
+}
+
+// Drag to reposition
+function pointerPos(e){
+  const rect = cropArea.getBoundingClientRect();
+  const cx = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+  const cy = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+  return {x: cx * (cropCanvas.width/rect.width), y: cy * (cropCanvas.height/rect.height)};
+}
+
+cropArea.addEventListener('mousedown', startDrag);
+cropArea.addEventListener('touchstart', startDrag, {passive:true});
+window.addEventListener('mousemove', onDrag);
+window.addEventListener('touchmove', onDrag, {passive:false});
+window.addEventListener('mouseup', endDrag);
+window.addEventListener('touchend', endDrag);
+
+function startDrag(e){
+  if(!img.src) return;
+  dragging = true;
+  cropArea.classList.add('dragging');
+  const p = pointerPos(e);
+  dragStart = p;
+  offsetStart = {x: offsetX, y: offsetY};
+}
+function onDrag(e){
+  if(!dragging) return;
+  if(e.touches) e.preventDefault();
+  const p = pointerPos(e);
+  const effScale = baseScale * scale;
+  offsetX = offsetStart.x - (p.x - dragStart.x)/effScale;
+  offsetY = offsetStart.y - (p.y - dragStart.y)/effScale;
+  clampOffset();
+  draw();
+}
+function endDrag(){
+  dragging = false;
+  cropArea.classList.remove('dragging');
+}
+
+zoomSlider.addEventListener('input', () => {
+  scale = zoomSlider.value/100;
+  clampOffset();
+  draw();
+});
+
+ratioSelect.addEventListener('change', () => {
+  customRatioRow.style.display = ratioSelect.value === 'custom' ? 'block' : 'none';
+  if(!img.src) return;
+  setupCanvasSize();
+  baseScale = Math.max(cropCanvas.width/img.width, cropCanvas.height/img.height);
+  scale = Math.max(1, scale);
+  clampOffset();
+  draw();
+});
+customW.addEventListener('input', () => ratioSelect.dispatchEvent(new Event('change')));
+customH.addEventListener('input', () => ratioSelect.dispatchEvent(new Event('change')));
+
+outW.addEventListener('input', () => {
+  if(outW.value < 20) outW.value = 20;
+  outH.value = Math.round(outW.value / ratio);
+  sizeLabel.textContent = 'Output will be ' + outW.value + ' x ' + outH.value + ' px';
+});
+
+dropzone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', e => { if(e.target.files[0]) loadImage(e.target.files[0]); });
+['dragover','dragenter'].forEach(ev => dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.add('drag'); }));
+['dragleave','drop'].forEach(ev => dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.remove('drag'); }));
+dropzone.addEventListener('drop', e => { if(e.dataTransfer.files[0]) loadImage(e.dataTransfer.files[0]); });
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  cropStage.classList.remove('active');
+  resultCard.classList.remove('active');
+  uploadCard.style.display = 'block';
+  fileInput.value = '';
+});
+
+function encodeToTarget(canvas, targetKB){
+  let quality = 0.92;
+  let dataUrl = canvas.toDataURL('image/jpeg', quality);
+  let sizeKB = (dataUrl.length * 3/4) / 1024;
+  let tries = 0;
+  while(sizeKB > targetKB && quality > 0.1 && tries < 15){
+    quality -= 0.07;
+    dataUrl = canvas.toDataURL('image/jpeg', quality);
+    sizeKB = (dataUrl.length * 3/4) / 1024;
+    tries++;
+  }
+  return {dataUrl, sizeKB, quality};
+}
+
+document.getElementById('downloadBtn').addEventListener('click', async () => {
+  const w = parseInt(outW.value), h = parseInt(outH.value);
+  const targetKB = parseInt(document.getElementById('targetKB').value) || 100;
+  const out = document.createElement('canvas');
+  out.width = w; out.height = h;
+  const octx = out.getContext('2d');
+  const effScale = baseScale * scale;
+  const scaleToOut = w / cropCanvas.width;
+  const drawW = img.width * effScale * scaleToOut;
+  const drawH = img.height * effScale * scaleToOut;
+  const cx = w/2 - offsetX*effScale*scaleToOut;
+  const cy = h/2 - offsetY*effScale*scaleToOut;
+  octx.fillStyle = '#ffffff';
+  octx.fillRect(0,0,w,h);
+  octx.drawImage(img, cx, cy, drawW, drawH);
+
+  const {dataUrl, sizeKB} = encodeToTarget(out, targetKB);
+  resultImg.src = dataUrl;
+  const roundedKB = Math.round(sizeKB);
+  const withinTarget = sizeKB <= targetKB;
+  resultInfo.textContent = w + ' x ' + h + ' px · ' + roundedKB + ' KB' +
+    (withinTarget ? ' (within your ' + targetKB + ' KB limit)' : ' (smallest size possible while keeping it readable — above your ' + targetKB + ' KB target)');
+  cropStage.classList.remove('active');
+  resultCard.classList.add('active');
+
+  const filename = 'photo-' + w + 'x' + h + '.jpg';
+
+  document.getElementById('downloadLink').onclick = async () => {
+    const savedMsg = document.getElementById('savedMsg');
+    savedMsg.style.display = 'none';
+    if(window.showSaveFilePicker){
+      try{
+        const blob = await (await fetch(dataUrl)).blob();
+        const handle = await window.showSaveFilePicker({
+          suggestedName: filename,
+          types: [{description:'JPEG photo', accept:{'image/jpeg':['.jpg']}}]
+        });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        savedMsg.style.display = 'block';
+        return;
+      }catch(err){
+        if(err && err.name === 'AbortError') return;
+      }
+    }
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = filename;
+    a.click();
+    savedMsg.style.display = 'block';
+  };
+});
+
+document.getElementById('backBtn').addEventListener('click', () => {
+  document.getElementById('savedMsg').style.display = 'none';
+  resultCard.classList.remove('active');
+  cropStage.classList.add('active');
+});
+
+function saveSettings(){
+  try{
+    localStorage.setItem('gdsResizerSettings', JSON.stringify({
+      ratio: ratioSelect.value,
+      customW: customW.value,
+      customH: customH.value,
+      outW: outW.value,
+      targetKB: document.getElementById('targetKB').value
+    }));
+  }catch(e){ /* storage unavailable — settings just won't persist */ }
+}
+
+function loadSettings(){
+  try{
+    const raw = localStorage.getItem('gdsResizerSettings');
+    if(!raw) return;
+    const s = JSON.parse(raw);
+    if(s.ratio) ratioSelect.value = s.ratio;
+    if(s.customW) customW.value = s.customW;
+    if(s.customH) customH.value = s.customH;
+    if(s.outW) outW.value = s.outW;
+    if(s.targetKB) document.getElementById('targetKB').value = s.targetKB;
+    customRatioRow.style.display = ratioSelect.value === 'custom' ? 'block' : 'none';
+  }catch(e){ /* storage unavailable — start with defaults */ }
+}
+
+loadSettings();
+[ratioSelect, customW, customH, outW, document.getElementById('targetKB')].forEach(el => {
+  el.addEventListener('change', saveSettings);
+});
+
+setupCanvasSize();
+</script>
+</body>
+</html>
